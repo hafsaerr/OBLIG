@@ -1,0 +1,177 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.db{padding:20px 0 32px;font-family:var(--font-sans)}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
+.sector-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.pill{font-size:11px;font-weight:500;padding:5px 11px;border-radius:20px;border:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary);background:var(--color-background-primary);cursor:pointer;transition:all .15s}
+.pill:hover{background:var(--color-background-secondary);color:var(--color-text-primary)}
+.pill.active{background:#185FA5;border-color:#185FA5;color:#fff}
+.agg-tabs{display:flex;gap:4px}
+.tab{font-size:12px;font-weight:500;padding:6px 14px;border-radius:6px;border:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary);background:transparent;cursor:pointer;transition:all .15s}
+.tab:hover{background:var(--color-background-secondary)}
+.tab.active{background:var(--color-background-secondary);color:var(--color-text-primary);border-color:var(--color-border-primary)}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.stat{background:var(--color-background-secondary);border-radius:8px;padding:12px 14px}
+.stat-label{font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px;letter-spacing:.3px}
+.stat-val{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.stat-sub{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.chart-panel{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;padding:20px}
+.panel-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px}
+.panel-title{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.panel-sub{font-size:11px;color:var(--color-text-secondary)}
+.legend-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-text-secondary)}
+.leg-sq{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.chart-wrap{position:relative}
+.divider{height:0.5px;background:var(--color-border-tertiary);margin:20px 0}
+</style>
+
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">Dashboard spread obligataire par secteur</h2>
+
+<div class="db">
+  <div class="topbar">
+    <div style="font-size:13px;color:var(--color-text-secondary)">Spread obligataire — OBL</div>
+    <div class="agg-tabs">
+      <button class="tab" data-agg="MAX">Max</button>
+      <button class="tab active" data-agg="MOYENNE">Moyenne</button>
+      <button class="tab" data-agg="MIN">Min</button>
+    </div>
+  </div>
+
+  <div class="sector-pills" id="pills"></div>
+
+  <div class="stats-row" id="stats">
+    <div class="stat"><div class="stat-label">Spread max</div><div class="stat-val" id="s-max">—</div><div class="stat-sub" id="s-max-em">—</div></div>
+    <div class="stat"><div class="stat-label">Spread moyen</div><div class="stat-val" id="s-avg">—</div><div class="stat-sub" id="s-avg-em">toutes maturités</div></div>
+    <div class="stat"><div class="stat-label">Spread min</div><div class="stat-val" id="s-min">—</div><div class="stat-sub" id="s-min-em">—</div></div>
+  </div>
+
+  <div class="chart-panel">
+    <div class="panel-header">
+      <div class="panel-title" id="panel-title">—</div>
+      <div class="panel-sub" id="panel-sub">—</div>
+    </div>
+    <div class="legend-row" id="legend"></div>
+    <div class="chart-wrap" id="chart-wrap">
+      <canvas id="mainChart" role="img" aria-label="Histogramme spread par maturité et émetteur"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const RAW = {"AGRO-ALIMENTAIRE||MAX":{"sector":"AGRO-ALIMENTAIRE","agg":"MAX","maturites":["3 ans","5 ans","7 ans"],"emetteurs":["AFRICA FEED FOOD","MUTANDIS SCA","OULMES"],"data":{"AFRICA FEED FOOD":[null,null,147.8],"MUTANDIS SCA":[null,118.8,null],"OULMES":[110.2,97.1,null]}},"AGRO-ALIMENTAIRE||MIN":{"sector":"AGRO-ALIMENTAIRE","agg":"MIN","maturites":["3 ans","5 ans","7 ans"],"emetteurs":["AFRICA FEED FOOD","MUTANDIS SCA","OULMES"],"data":{"AFRICA FEED FOOD":[null,null,129.8],"MUTANDIS SCA":[null,99.8,null],"OULMES":[19.7,62.1,null]}},"AGRO-ALIMENTAIRE||MOYENNE":{"sector":"AGRO-ALIMENTAIRE","agg":"MOYENNE","maturites":["3 ans","5 ans","7 ans"],"emetteurs":["AFRICA FEED FOOD","MUTANDIS SCA","OULMES"],"data":{"AFRICA FEED FOOD":[null,null,138.8],"MUTANDIS SCA":[null,109.3,null],"OULMES":[75.2,79.6,null]}},"AUTOMOBILE||MAX":{"sector":"AUTOMOBILE","agg":"MAX","maturites":["2 ans","3 ans","4 ans","7 ans"],"emetteurs":["AUTO NEJMA","OD MAROC","RCI"],"data":{"AUTO NEJMA":[46.5,null,50.4,null],"OD MAROC":[null,null,null,110.8],"RCI":[95.3,34.7,38.3,null]}},"AUTOMOBILE||MIN":{"sector":"AUTOMOBILE","agg":"MIN","maturites":["2 ans","3 ans","4 ans","7 ans"],"emetteurs":["AUTO NEJMA","OD MAROC","RCI"],"data":{"AUTO NEJMA":[46.5,null,39.4,null],"OD MAROC":[null,null,null,110.8],"RCI":[20.3,33.6,38.3,null]}},"AUTOMOBILE||MOYENNE":{"sector":"AUTOMOBILE","agg":"MOYENNE","maturites":["2 ans","3 ans","4 ans","7 ans"],"emetteurs":["AUTO NEJMA","OD MAROC","RCI"],"data":{"AUTO NEJMA":[46.5,null,44.9,null],"OD MAROC":[null,null,null,110.8],"RCI":[44.2,34.1,38.3,null]}},"AUTRES||MAX":{"sector":"AUTRES","agg":"MAX","maturites":["10 ans"],"emetteurs":["Region de Casa"],"data":{"Region de Casa":[116.1]}},"AUTRES||MIN":{"sector":"AUTRES","agg":"MIN","maturites":["10 ans"],"emetteurs":["Region de Casa"],"data":{"Region de Casa":[116.1]}},"AUTRES||MOYENNE":{"sector":"AUTRES","agg":"MOYENNE","maturites":["10 ans"],"emetteurs":["Region de Casa"],"data":{"Region de Casa":[116.1]}},"BTP||MAX":{"sector":"BTP","agg":"MAX","maturites":["3 ans","4 ans","7 ans","10 ans"],"emetteurs":["ADI","ASSIFILL BUILD","BUILDING LOGIST","CMGP GROUP","JET CONTRACTORS","TGCC"],"data":{"ADI":[null,null,88.0,35.9],"ASSIFILL BUILD":[119.3,null,null,null],"BUILDING LOGIST":[null,null,163.1,null],"CMGP GROUP":[null,null,107.2,null],"JET CONTRACTORS":[null,null,191.4,null],"TGCC":[null,86.8,null,null]}},"BTP||MIN":{"sector":"BTP","agg":"MIN","maturites":["3 ans","4 ans","7 ans","10 ans"],"emetteurs":["ADI","ASSIFILL BUILD","BUILDING LOGIST","CMGP GROUP","JET CONTRACTORS","TGCC"],"data":{"ADI":[null,null,88.0,26.9],"ASSIFILL BUILD":[119.3,null,null,null],"BUILDING LOGIST":[null,null,98.1,null],"CMGP GROUP":[null,null,86.2,null],"JET CONTRACTORS":[null,null,92.6,null],"TGCC":[null,86.8,null,null]}},"BTP||MOYENNE":{"sector":"BTP","agg":"MOYENNE","maturites":["3 ans","4 ans","7 ans","10 ans"],"emetteurs":["ADI","ASSIFILL BUILD","BUILDING LOGIST","CMGP GROUP","JET CONTRACTORS","TGCC"],"data":{"ADI":[null,null,88.0,31.4],"ASSIFILL BUILD":[119.3,null,null,null],"BUILDING LOGIST":[null,null,126.8,null],"CMGP GROUP":[null,null,96.7,null],"JET CONTRACTORS":[null,null,130.2,null],"TGCC":[null,86.8,null,null]}},"CHIMIE / MINES||MAX":{"sector":"CHIMIE / MINES","agg":"MAX","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["MANAGEM","OCP NUTRICROPS","OCP SA"],"data":{"MANAGEM":[null,109.4,null],"OCP NUTRICROPS":[26.0,null,32.0],"OCP SA":[null,null,39.3]}},"CHIMIE / MINES||MIN":{"sector":"CHIMIE / MINES","agg":"MIN","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["MANAGEM","OCP NUTRICROPS","OCP SA"],"data":{"MANAGEM":[null,99.4,null],"OCP NUTRICROPS":[26.0,null,-42.0],"OCP SA":[null,null,-30.7]}},"CHIMIE / MINES||MOYENNE":{"sector":"CHIMIE / MINES","agg":"MOYENNE","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["MANAGEM","OCP NUTRICROPS","OCP SA"],"data":{"MANAGEM":[null,104.4,null],"OCP NUTRICROPS":[26.0,null,-5.0],"OCP SA":[null,null,4.3]}},"CIMENTERIE||MAX":{"sector":"CIMENTERIE","agg":"MAX","maturites":["3 ans"],"emetteurs":["CIMAT"],"data":{"CIMAT":[83.7]}},"CIMENTERIE||MIN":{"sector":"CIMENTERIE","agg":"MIN","maturites":["3 ans"],"emetteurs":["CIMAT"],"data":{"CIMAT":[83.7]}},"CIMENTERIE||MOYENNE":{"sector":"CIMENTERIE","agg":"MOYENNE","maturites":["3 ans"],"emetteurs":["CIMAT"],"data":{"CIMAT":[83.7]}},"EDUCATION||MAX":{"sector":"EDUCATION","agg":"MAX","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["Univ Mohammed VI"],"data":{"Univ Mohammed VI":[44.7,50.1,56.2]}},"EDUCATION||MIN":{"sector":"EDUCATION","agg":"MIN","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["Univ Mohammed VI"],"data":{"Univ Mohammed VI":[44.7,50.1,56.2]}},"EDUCATION||MOYENNE":{"sector":"EDUCATION","agg":"MOYENNE","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["Univ Mohammed VI"],"data":{"Univ Mohammed VI":[44.7,50.1,56.2]}},"ENERGIE||MAX":{"sector":"ENERGIE","agg":"MAX","maturites":["4 ans","5 ans","10 ans"],"emetteurs":["AFRIQUIA GAZ","LYDEC","MAGHREB OXYGENE","ONEE"],"data":{"AFRIQUIA GAZ":[108.5,99.3,null],"LYDEC":[null,75.8,null],"MAGHREB OXYGENE":[null,99.3,93.0],"ONEE":[null,99.3,86.7]}},"ENERGIE||MIN":{"sector":"ENERGIE","agg":"MIN","maturites":["4 ans","5 ans","10 ans"],"emetteurs":["AFRIQUIA GAZ","LYDEC","MAGHREB OXYGENE","ONEE"],"data":{"AFRIQUIA GAZ":[108.5,82.8,null],"LYDEC":[null,75.8,null],"MAGHREB OXYGENE":[null,99.3,93.0],"ONEE":[null,52.0,34.0]}},"ENERGIE||MOYENNE":{"sector":"ENERGIE","agg":"MOYENNE","maturites":["4 ans","5 ans","10 ans"],"emetteurs":["AFRIQUIA GAZ","LYDEC","MAGHREB OXYGENE","ONEE"],"data":{"AFRIQUIA GAZ":[108.5,91.1,null],"LYDEC":[null,75.8,null],"MAGHREB OXYGENE":[null,99.3,93.0],"ONEE":[null,76.9,60.8]}},"GRANDE DISTRIBUTION||MAX":{"sector":"GRANDE DISTRIBUTION","agg":"MAX","maturites":["5 ans","7 ans"],"emetteurs":["LABEL VIE","MARJANE HOLDING"],"data":{"LABEL VIE":[106.8,85.7],"MARJANE HOLDING":[null,77.8]}},"GRANDE DISTRIBUTION||MIN":{"sector":"GRANDE DISTRIBUTION","agg":"MIN","maturites":["5 ans","7 ans"],"emetteurs":["LABEL VIE","MARJANE HOLDING"],"data":{"LABEL VIE":[28.2,1.2],"MARJANE HOLDING":[null,39.7]}},"GRANDE DISTRIBUTION||MOYENNE":{"sector":"GRANDE DISTRIBUTION","agg":"MOYENNE","maturites":["5 ans","7 ans"],"emetteurs":["LABEL VIE","MARJANE HOLDING"],"data":{"LABEL VIE":[75.4,51.7],"MARJANE HOLDING":[null,57.2]}},"HOLDING||MAX":{"sector":"HOLDING","agg":"MAX","maturites":["2 ans","3 ans","5 ans","6 ans","7 ans","10 ans"],"emetteurs":["AL MADA","FINANCECOM","GARAN","HOLMARCOM FIN CO","Hold GENE EDU","O CAPITAL GROUP"],"data":{"AL MADA":[14.5,24.5,56.9,54.7,null,60.6],"FINANCECOM":[null,null,null,null,24.9,null],"GARAN":[278.1,null,null,null,null,null],"HOLMARCOM FIN CO":[null,null,null,null,null,74.0],"Hold GENE EDU":[null,null,null,null,146.0,null],"O CAPITAL GROUP":[null,null,null,null,64.9,null]}},"HOLDING||MIN":{"sector":"HOLDING","agg":"MIN","maturites":["2 ans","3 ans","5 ans","6 ans","7 ans","10 ans"],"emetteurs":["AL MADA","FINANCECOM","GARAN","HOLMARCOM FIN CO","Hold GENE EDU","O CAPITAL GROUP"],"data":{"AL MADA":[14.5,24.5,54.9,54.7,null,60.6],"FINANCECOM":[null,null,null,null,24.9,null],"GARAN":[214.1,null,null,null,null,null],"HOLMARCOM FIN CO":[null,null,null,null,null,34.0],"Hold GENE EDU":[null,null,null,null,146.0,null],"O CAPITAL GROUP":[null,null,null,null,-3.1,null]}},"HOLDING||MOYENNE":{"sector":"HOLDING","agg":"MOYENNE","maturites":["2 ans","3 ans","5 ans","6 ans","7 ans","10 ans"],"emetteurs":["AL MADA","FINANCECOM","GARAN","HOLMARCOM FIN CO","Hold GENE EDU","O CAPITAL GROUP"],"data":{"AL MADA":[14.5,24.5,55.9,54.7,null,60.6],"FINANCECOM":[null,null,null,null,24.9,null],"GARAN":[246.1,null,null,null,null,null],"HOLMARCOM FIN CO":[null,null,null,null,null,54.0],"Hold GENE EDU":[null,null,null,null,146.0,null],"O CAPITAL GROUP":[null,null,null,null,28.9,null]}},"IMMOBILIER||MAX":{"sector":"IMMOBILIER","agg":"MAX","maturites":["13 sem","1 an","2 ans","4 ans","5 ans","6 ans","7 ans","8 ans","10 ans"],"emetteurs":["AL OMRANE","ALLIANCES DARNA","ARADEI CAPITAL","CMR LSTONE","DOUJA PROM ADD","HAYAN IMMO SA","IMMOLOG","PALME DEV","RDS"],"data":{"AL OMRANE":[null,null,null,null,null,null,124.1,null,174.8],"ALLIANCES DARNA":[null,null,null,null,null,null,null,null,35.9],"ARADEI CAPITAL":[70.0,null,null,null,134.4,null,105.4,null,null],"CMR LSTONE":[null,null,null,null,null,null,null,null,-5.0],"DOUJA PROM ADD":[null,null,null,null,null,287.6,309.8,null,null],"HAYAN IMMO SA":[null,null,null,null,null,null,213.2,null,null],"IMMOLOG":[null,null,null,null,297.3,null,null,null,null],"PALME DEV":[null,null,null,null,null,null,382.0,null,null],"RDS":[null,291.6,287.0,277.9,null,208.0,null,183.5,151.2]}},"IMMOBILIER||MIN":{"sector":"IMMOBILIER","agg":"MIN","maturites":["13 sem","1 an","2 ans","4 ans","5 ans","6 ans","7 ans","8 ans","10 ans"],"emetteurs":["AL OMRANE","ALLIANCES DARNA","ARADEI CAPITAL","CMR LSTONE","DOUJA PROM ADD","HAYAN IMMO SA","IMMOLOG","PALME DEV","RDS"],"data":{"AL OMRANE":[null,null,null,null,null,null,38.4,null,62.3],"ALLIANCES DARNA":[null,null,null,null,null,null,null,null,35.9],"ARADEI CAPITAL":[70.0,null,null,null,69.6,null,52.4,null,null],"CMR LSTONE":[null,null,null,null,null,null,null,null,-5.0],"DOUJA PROM ADD":[null,null,null,null,null,245.2,264.8,null,null],"HAYAN IMMO SA":[null,null,null,null,null,null,173.2,null,null],"IMMOLOG":[null,null,null,null,259.3,null,null,null,null],"PALME DEV":[null,null,null,null,null,null,284.0,null,null],"RDS":[null,182.6,178.0,227.9,null,193.6,null,183.5,151.2]}},"IMMOBILIER||MOYENNE":{"sector":"IMMOBILIER","agg":"MOYENNE","maturites":["13 sem","1 an","2 ans","4 ans","5 ans","6 ans","7 ans","8 ans","10 ans"],"emetteurs":["AL OMRANE","ALLIANCES DARNA","ARADEI CAPITAL","CMR LSTONE","DOUJA PROM ADD","HAYAN IMMO SA","IMMOLOG","PALME DEV","RDS"],"data":{"AL OMRANE":[null,null,null,null,null,null,93.3,null,105.4],"ALLIANCES DARNA":[null,null,null,null,null,null,null,null,35.9],"ARADEI CAPITAL":[70.0,null,null,null,103.5,null,76.6,null,null],"CMR LSTONE":[null,null,null,null,null,null,null,null,-5.0],"DOUJA PROM ADD":[null,null,null,null,null,270.1,287.3,null,null],"HAYAN IMMO SA":[null,null,null,null,null,null,193.2,null,null],"IMMOLOG":[null,null,null,null,278.3,null,null,null,null],"PALME DEV":[null,null,null,null,null,null,333.0,null,null],"RDS":[null,237.1,232.5,252.9,null,200.8,null,183.5,151.2]}},"INDUSTRIE||MAX":{"sector":"INDUSTRIE","agg":"MAX","maturites":["2 ans","5 ans","10 ans"],"emetteurs":["CMB PLA MAROC","TC3PC"],"data":{"CMB PLA MAROC":[226.9,null,null],"TC3PC":[null,77.1,92.1]}},"INDUSTRIE||MIN":{"sector":"INDUSTRIE","agg":"MIN","maturites":["2 ans","5 ans","10 ans"],"emetteurs":["CMB PLA MAROC","TC3PC"],"data":{"CMB PLA MAROC":[209.7,null,null],"TC3PC":[null,48.1,40.1]}},"INDUSTRIE||MOYENNE":{"sector":"INDUSTRIE","agg":"MOYENNE","maturites":["2 ans","5 ans","10 ans"],"emetteurs":["CMB PLA MAROC","TC3PC"],"data":{"CMB PLA MAROC":[218.3,null,null],"TC3PC":[null,62.6,66.1]}},"LEASING||MAX":{"sector":"LEASING","agg":"MAX","maturites":["2 ans","5 ans"],"emetteurs":["MA LEASING"],"data":{"MA LEASING":[0.9,95.2]}},"LEASING||MIN":{"sector":"LEASING","agg":"MIN","maturites":["2 ans","5 ans"],"emetteurs":["MA LEASING"],"data":{"MA LEASING":[0.9,33.2]}},"LEASING||MOYENNE":{"sector":"LEASING","agg":"MOYENNE","maturites":["2 ans","5 ans"],"emetteurs":["MA LEASING"],"data":{"MA LEASING":[0.9,64.2]}},"MICROFINANCE||MAX":{"sector":"MICROFINANCE","agg":"MAX","maturites":["6 ans"],"emetteurs":["JAIDA"],"data":{"JAIDA":[73.0]}},"MICROFINANCE||MIN":{"sector":"MICROFINANCE","agg":"MIN","maturites":["6 ans"],"emetteurs":["JAIDA"],"data":{"JAIDA":[73.0]}},"MICROFINANCE||MOYENNE":{"sector":"MICROFINANCE","agg":"MOYENNE","maturites":["6 ans"],"emetteurs":["JAIDA"],"data":{"JAIDA":[73.0]}},"PARA-PUBLIC||MAX":{"sector":"PARA-PUBLIC","agg":"MAX","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["AGRI CAPITAL","BEST FINANCIERE","COMMUNE AGADIR","SCIF"],"data":{"AGRI CAPITAL":[69.5,null,null],"BEST FINANCIERE":[null,130.0,null],"COMMUNE AGADIR":[null,174.1,167.5],"SCIF":[140.0,null,null]}},"PARA-PUBLIC||MIN":{"sector":"PARA-PUBLIC","agg":"MIN","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["AGRI CAPITAL","BEST FINANCIERE","COMMUNE AGADIR","SCIF"],"data":{"AGRI CAPITAL":[69.5,null,null],"BEST FINANCIERE":[null,79.8,null],"COMMUNE AGADIR":[null,174.1,167.5],"SCIF":[140.0,null,null]}},"PARA-PUBLIC||MOYENNE":{"sector":"PARA-PUBLIC","agg":"MOYENNE","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["AGRI CAPITAL","BEST FINANCIERE","COMMUNE AGADIR","SCIF"],"data":{"AGRI CAPITAL":[69.5,null,null],"BEST FINANCIERE":[null,96.6,null],"COMMUNE AGADIR":[null,174.1,167.5],"SCIF":[140.0,null,null]}},"SANTE||MAX":{"sector":"SANTE","agg":"MAX","maturites":["7 ans"],"emetteurs":["AKDITAL"],"data":{"AKDITAL":[108.0]}},"SANTE||MIN":{"sector":"SANTE","agg":"MIN","maturites":["7 ans"],"emetteurs":["AKDITAL"],"data":{"AKDITAL":[51.0]}},"SANTE||MOYENNE":{"sector":"SANTE","agg":"MOYENNE","maturites":["7 ans"],"emetteurs":["AKDITAL"],"data":{"AKDITAL":[76.7]}},"TELECOM||MAX":{"sector":"TELECOM","agg":"MAX","maturites":["4 ans"],"emetteurs":["MEDI TELCOM SA"],"data":{"MEDI TELCOM SA":[46.2]}},"TELECOM||MIN":{"sector":"TELECOM","agg":"MIN","maturites":["4 ans"],"emetteurs":["MEDI TELCOM SA"],"data":{"MEDI TELCOM SA":[16.2]}},"TELECOM||MOYENNE":{"sector":"TELECOM","agg":"MOYENNE","maturites":["4 ans"],"emetteurs":["MEDI TELCOM SA"],"data":{"MEDI TELCOM SA":[31.2]}},"TEXTILE||MAX":{"sector":"TEXTILE","agg":"MAX","maturites":["3 ans"],"emetteurs":["MCM"],"data":{"MCM":[129.1]}},"TEXTILE||MIN":{"sector":"TEXTILE","agg":"MIN","maturites":["3 ans"],"emetteurs":["MCM"],"data":{"MCM":[129.1]}},"TEXTILE||MOYENNE":{"sector":"TEXTILE","agg":"MOYENNE","maturites":["3 ans"],"emetteurs":["MCM"],"data":{"MCM":[129.1]}},"TOURISME||MAX":{"sector":"TOURISME","agg":"MAX","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["MADAEF","RISMA SA"],"data":{"MADAEF":[null,85.6,86.5],"RISMA SA":[228.1,null,null]}},"TOURISME||MIN":{"sector":"TOURISME","agg":"MIN","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["MADAEF","RISMA SA"],"data":{"MADAEF":[null,48.6,86.5],"RISMA SA":[228.1,null,null]}},"TOURISME||MOYENNE":{"sector":"TOURISME","agg":"MOYENNE","maturites":["5 ans","7 ans","10 ans"],"emetteurs":["MADAEF","RISMA SA"],"data":{"MADAEF":[null,67.1,86.5],"RISMA SA":[228.1,null,null]}},"TRANSPORT||MAX":{"sector":"TRANSPORT","agg":"MAX","maturites":["5 ans","6 ans","7 ans","10 ans"],"emetteurs":["ADM","ANP","CMT","CTM SA","ONDA"],"data":{"ADM":[76.8,null,61.9,65.6],"ANP":[null,63.9,20.0,null],"CMT":[86.3,null,null,null],"CTM SA":[96.0,null,null,null],"ONDA":[null,null,null,85.9]}},"TRANSPORT||MIN":{"sector":"TRANSPORT","agg":"MIN","maturites":["5 ans","6 ans","7 ans","10 ans"],"emetteurs":["ADM","ANP","CMT","CTM SA","ONDA"],"data":{"ADM":[45.8,null,32.9,23.6],"ANP":[null,63.9,20.0,null],"CMT":[46.3,null,null,null],"CTM SA":[80.7,null,null,null],"ONDA":[null,null,null,85.9]}},"TRANSPORT||MOYENNE":{"sector":"TRANSPORT","agg":"MOYENNE","maturites":["5 ans","6 ans","7 ans","10 ans"],"emetteurs":["ADM","ANP","CMT","CTM SA","ONDA"],"data":{"ADM":[61.3,null,47.4,44.6],"ANP":[null,63.9,20.0,null],"CMT":[66.3,null,null,null],"CTM SA":[87.7,null,null,null],"ONDA":[null,null,null,85.9]}}};
+
+const COLORS = ['#185FA5','#1D9E75','#D85A30','#7F77DD','#BA7517','#D4537E','#3B6D11','#A32D2D','#0F6E56','#854F0B'];
+const sectors = [...new Set(Object.values(RAW).map(d=>d.sector))].sort();
+
+let curSector = sectors[0];
+let curAgg = 'MOYENNE';
+let chart = null;
+
+const pillsEl = document.getElementById('pills');
+sectors.forEach(s => {
+  const b = document.createElement('button');
+  b.className = 'pill' + (s===curSector?' active':'');
+  b.textContent = s;
+  b.dataset.sector = s;
+  b.onclick = () => { curSector=s; render(); };
+  pillsEl.appendChild(b);
+});
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => { curAgg = t.dataset.agg; render(); };
+});
+
+function render() {
+  document.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.dataset.sector===curSector));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.agg===curAgg));
+
+  const key = `${curSector}||${curAgg}`;
+  const d = RAW[key];
+  if (!d) return;
+
+  const allVals = Object.values(d.data).flat().filter(v=>v!==null);
+  const maxV = allVals.length ? Math.round(Math.max(...allVals)) : 0;
+  const minV = allVals.length ? Math.round(Math.min(...allVals)) : 0;
+  const avgV = allVals.length ? Math.round(allVals.reduce((a,b)=>a+b,0)/allVals.length) : 0;
+
+  let maxEm='', minEm='';
+  d.emetteurs.forEach(em => {
+    const vals = d.data[em].filter(v=>v!==null);
+    if(vals.length){
+      if(Math.round(Math.max(...vals))===maxV) maxEm=em;
+      if(Math.round(Math.min(...vals))===minV) minEm=em;
+    }
+  });
+
+  document.getElementById('s-max').textContent = maxV + ' bps';
+  document.getElementById('s-max-em').textContent = maxEm;
+  document.getElementById('s-avg').textContent = avgV + ' bps';
+  document.getElementById('s-min').textContent = (minV<0?'':'')+minV + ' bps';
+  document.getElementById('s-min-em').textContent = minEm;
+
+  document.getElementById('panel-title').textContent = curSector;
+  document.getElementById('panel-sub').textContent = curAgg.toLowerCase() + ' des spreads · ' + d.emetteurs.length + ' émetteur' + (d.emetteurs.length>1?'s':'');
+
+  const legEl = document.getElementById('legend');
+  legEl.innerHTML = '';
+  d.emetteurs.forEach((em,i) => {
+    const s = document.createElement('span');
+    s.className = 'leg';
+    s.innerHTML = `<span class="leg-sq" style="background:${COLORS[i%COLORS.length]}"></span>${em}`;
+    legEl.appendChild(s);
+  });
+
+  const nMats = d.maturites.length;
+  const nEm = d.emetteurs.length;
+  const h = Math.max(200, nMats * Math.max(32, nEm*14) + 80);
+  document.getElementById('chart-wrap').style.height = h + 'px';
+
+  const datasets = d.emetteurs.map((em,i) => ({
+    label: em,
+    data: d.data[em].map(v=>v===null?null:Math.round(v*10)/10),
+    backgroundColor: COLORS[i%COLORS.length]+'CC',
+    borderColor: COLORS[i%COLORS.length],
+    borderWidth: 1,
+    borderRadius: 4,
+  }));
+
+  const isDark = matchMedia('(prefers-color-scheme:dark)').matches;
+  const gc = isDark?'rgba(255,255,255,.07)':'rgba(0,0,0,.05)';
+  const tc = isDark?'#999':'#888';
+  const zc = isDark?'rgba(255,255,255,.2)':'rgba(0,0,0,.15)';
+
+  if(chart){ chart.destroy(); }
+  chart = new Chart(document.getElementById('mainChart'), {
+    type: 'bar',
+    data: { labels: d.maturites, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: ctx => ctx.raw!==null ? `${ctx.dataset.label}: ${ctx.raw} bps` : null }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: tc, font:{size:11}, autoSkip:false },
+          grid: { color: gc },
+          border: { color: zc }
+        },
+        y: {
+          ticks: { color: tc, font:{size:11}, callback: v => v+' bps' },
+          grid: { color: gc },
+          border: { color: zc }
+        }
+      },
+      layout: { padding: { top: 4, right: 4 } }
+    }
+  });
+}
+
+render();
+</script>
